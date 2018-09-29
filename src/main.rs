@@ -36,11 +36,19 @@ fn main() {
     }
 
     let ca_root = cert::get_ca_root();
-    fs::create_dir_all(ca_root).ok();
+    fs::create_dir_all(&ca_root).expect("Failed create a CA root directory");
 
-    let (ca_cert, ca_privkey) = cert::generate_ca().expect("Failed to generate CA");
-    let ca_pem = ca_cert.to_pem().expect("Failed to serialize the certificate into a PEM-encoded X509 structure");
+    let root_ca_path = ca_root.join(ROOT_NAME);
+    let root_ca_key_path = ca_root.join(KEY_NAME);
 
-    let ca_root = cert::get_ca_root();
-    fs::write(ca_root.join(ROOT_NAME), ca_pem).expect("Failed to write a certificate file");
+    if !root_ca_path.exists() || !root_ca_key_path.exists() {
+        let (ca_cert, ca_privkey) = cert::generate_ca().expect("Failed to generate CA");
+        let ca_pem = ca_cert.to_pem().expect("Failed to serialize the certificate into a PEM-encoded X509 structure");
+        let priv_der = ca_privkey.private_key_to_der().expect("Failed to serialized the private key to a DER-encoded key type");
+
+        fs::write(root_ca_path, ca_pem).expect("Failed to write a certificate file");
+        fs::write(root_ca_key_path, priv_der).expect("Failed to write a key file");
+
+        println!("✨ Created a new local CA at {:?}", ca_root.to_str().unwrap());
+    };
 }
