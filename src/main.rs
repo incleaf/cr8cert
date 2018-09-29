@@ -1,6 +1,12 @@
 extern crate clap;
 
+mod cert;
+
+use std::fs;
 use clap::{App, Arg};
+
+const rootName: &'static str = "rootCA.pem";
+const keyName: &'static str = "rootCA-key.pem";
 
 fn main() {
     let matches = App::new("cr8cert")
@@ -27,4 +33,7 @@ fn main() {
         let names: Vec<_> = matches.values_of("create").unwrap().collect();
         println!("Names detected: {:?}", names);
     }
+
+    let ca_root = cert::get_ca_root();
+    fs::create_dir_all(ca_root).ok();
 }
