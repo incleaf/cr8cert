@@ -4,9 +4,10 @@ mod cert;
 
 use std::fs;
 use clap::{App, Arg};
+use std::fs::File;
 
-const rootName: &'static str = "rootCA.pem";
-const keyName: &'static str = "rootCA-key.pem";
+const ROOT_NAME: &'static str = "rootCA.pem";
+const KEY_NAME: &'static str = "rootCA-key.pem";
 
 fn main() {
     let matches = App::new("cr8cert")
@@ -36,4 +37,10 @@ fn main() {
 
     let ca_root = cert::get_ca_root();
     fs::create_dir_all(ca_root).ok();
+
+    let (ca_cert, ca_privkey) = cert::generate_ca().expect("Failed to generate CA");
+    let ca_pem = ca_cert.to_pem().expect("Failed to serialize the certificate into a PEM-encoded X509 structure");
+
+    let ca_root = cert::get_ca_root();
+    fs::write(ca_root.join(ROOT_NAME), ca_pem).expect("Failed to write a certificate file");
 }
