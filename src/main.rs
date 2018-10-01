@@ -30,25 +30,39 @@ fn main() {
         println!("Debugging is turned on");
     }
 
-    if let Some(_) = matches.values_of("create") {
-        let names: Vec<_> = matches.values_of("create").unwrap().collect();
-        println!("Names detected: {:?}", names);
+    if matches.is_present("install") {
+        let ca_root = cert::get_ca_root();
+        fs::create_dir_all(&ca_root).expect("Failed create a CA root directory");
+
+        let root_ca_path = ca_root.join(ROOT_NAME);
+        let root_ca_key_path = ca_root.join(KEY_NAME);
+
+        if !root_ca_path.exists() || !root_ca_key_path.exists() {
+            let (ca_cert, ca_privkey) = cert::generate_ca().expect("Failed to generate CA");
+            let ca_pem = ca_cert.to_pem().expect("Failed to serialize the certificate into a PEM-encoded X509 structure");
+            let priv_der = ca_privkey.private_key_to_pem_pkcs8().expect("Failed to serialized the private key to PEM");
+
+            fs::write(root_ca_path, ca_pem).expect("Failed to write a certificate file");
+            fs::write(root_ca_key_path, priv_der).expect("Failed to write a key file");
+
+            println!("✨ Created a new local CA at {:?}", ca_root.to_str().unwrap());
+        } else {
+            println!("Local CA already installed at {:?}", ca_root.to_str().unwrap());
+        };
     }
 
-    let ca_root = cert::get_ca_root();
-    fs::create_dir_all(&ca_root).expect("Failed create a CA root directory");
+    if let Some(_) = matches.values_of("create") {
+        let hosts: Vec<_> = matches.values_of("create").unwrap().collect();
 
-    let root_ca_path = ca_root.join(ROOT_NAME);
-    let root_ca_key_path = ca_root.join(KEY_NAME);
+        let ca_root = cert::get_ca_root();
+        fs::create_dir_all(&ca_root).expect("Failed create a CA root directory");
 
-    if !root_ca_path.exists() || !root_ca_key_path.exists() {
-        let (ca_cert, ca_privkey) = cert::generate_ca().expect("Failed to generate CA");
-        let ca_pem = ca_cert.to_pem().expect("Failed to serialize the certificate into a PEM-encoded X509 structure");
-        let priv_der = ca_privkey.private_key_to_der().expect("Failed to serialized the private key to a DER-encoded key type");
+        let root_ca_path = ca_root.join(ROOT_NAME);
+        let root_ca_key_path = ca_root.join(KEY_NAME);
 
-        fs::write(root_ca_path, ca_pem).expect("Failed to write a certificate file");
-        fs::write(root_ca_key_path, priv_der).expect("Failed to write a key file");
+        let root_ca = File::open(root_ca_path).expect("Local CA is not installed. You can install it with --install flag.");
+        let root_ca_key = File::open(root_ca_key_path).expect("Local CA is not installed. You can install it with --install flag.");
 
-        println!("✨ Created a new local CA at {:?}", ca_root.to_str().unwrap());
-    };
+        cert::cr8cert(hosts, root_ca, root_ca_key).ok();
+    }
 }
