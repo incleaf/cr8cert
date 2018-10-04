@@ -1,12 +1,16 @@
 extern crate openssl;
 extern crate pem;
+extern crate plist;
 
 use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 use std::fs::File;
+use std::io::prelude::*;
 use std::io::Read;
 use std::fs;
+
+use cert::plist::Plist;
 
 use cert::openssl::rsa::Rsa;
 use cert::openssl::x509::{X509, X509NameBuilder, X509Ref};
@@ -21,6 +25,11 @@ use cert::openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints, K
                                SubjectAlternativeName, SubjectKeyIdentifier, ExtendedKeyUsage};
 use cert::pem::{Pem, encode};
 use std::net::IpAddr;
+use std::process::Command;
+use std::str;
+
+pub const ROOT_NAME: &'static str = "rootCA.pem";
+pub const KEY_NAME: &'static str = "rootCA-key.pem";
 
 
 const MSB_MAYBE_ZERO: MsbOption = MsbOption::MAYBE_ZERO;
@@ -76,6 +85,8 @@ pub fn generate_ca() -> Result<(X509, PKey<Private>), ErrorStack> {
 
   cert_builder.sign(&privkey, MessageDigest::sha256())?;
   let cert = cert_builder.build();
+
+  install_to_trust_store().ok();
 
   Ok((cert, privkey))
 }
@@ -155,4 +166,52 @@ pub fn cr8cert(hosts: Vec<&str>, mut ca: File, mut ca_key: File) -> Result<(X509
   fs::write(env::current_dir().unwrap().join("key.pem"), priv_pem).expect("Failed to write a key file");
 
   return Ok((cert, pkey));
+}
+
+pub fn install_to_trust_store() -> Result<(), ()> {
+  let ca_root = get_ca_root();
+  let output = Command::new("sudo")
+    .arg("security")
+    .arg("add-trusted-cert")
+    .arg("-d")
+    .arg("-k")
+    .arg("/Library/Keychains/System.keychain")
+    .arg(ca_root.join(ROOT_NAME))
+    .output()
+    .expect("failed to execute process");
+
+  if !output.status.success() {
+    let s = match str::from_utf8(&output.stderr) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+    panic!("{}", s);
+  };
+
+  let tmp_filename = String::from("tmp");
+  File::create(&tmp_filename).expect("Failed to create a temp file");
+  Command::new("sudo").arg("security").arg("trust-settings-export").arg("-d").arg(&tmp_filename).output().expect("failed to execute process");
+  let plist_file = File::open(&tmp_filename).expect("Failed to open the plist file");
+  let plist = Plist::read(plist_file).expect("Failed to parse plist");
+
+  match plist {
+    Plist::Dictionary(_dic) => {
+      if let Some(v) = _dic.get("trustVersion").expect("Trust version not found").as_integer() {
+        if v != 1 {
+          panic!("ERROR: unsupported trust settings version {}", &v);
+        }
+        let trustlist = _dic.get("trustList").expect("Trust list not found").as_dictionary().unwrap();
+
+        for (k, v) in trustlist {
+          let _v = v.as_dictionary().expect("Failed to return in dictionary");
+          println!("{:?}", _v.get("issuerName"));
+        }
+      }
+    },
+    _ => {
+      println!("cccc");
+    }
+  };
+
+  Ok(())
 }
