@@ -7,4 +7,3 @@ authors = ["Hyeonsu Lee <incleaf@gmail.com>"]
 clap = "2.32"
 openssl = { version = "0.10", features = ["vendored"] }
 pem = "0.4"
-plist = "0.3"

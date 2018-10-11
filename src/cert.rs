@@ -1,29 +1,22 @@
 extern crate openssl;
 extern crate pem;
-extern crate plist;
 
 use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::Read;
 use std::fs;
 
-use cert::plist::Plist;
-
 use cert::openssl::rsa::Rsa;
-use cert::openssl::x509::{X509, X509NameBuilder, X509Ref};
-use cert::openssl::asn1::{Asn1BitStringRef, Asn1IntegerRef, Asn1ObjectRef, Asn1StringRef, Asn1TimeRef};
+use cert::openssl::x509::{X509, X509NameBuilder};
 use cert::openssl::asn1::Asn1Time;
 use cert::openssl::bn::{BigNum,MsbOption};
 use cert::openssl::error::ErrorStack;
 use cert::openssl::hash::MessageDigest;
-use cert::openssl::pkey::{PKey, PKeyRef, Private};
-use cert::openssl::x509::{X509Req, X509ReqBuilder};
+use cert::openssl::pkey::{PKey, Private};
 use cert::openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage,
                                SubjectAlternativeName, SubjectKeyIdentifier, ExtendedKeyUsage};
-use cert::pem::{Pem, encode};
 use std::net::IpAddr;
 use std::process::Command;
 use std::str;
@@ -85,8 +78,6 @@ pub fn generate_ca() -> Result<(X509, PKey<Private>), ErrorStack> {
 
   cert_builder.sign(&privkey, MessageDigest::sha256())?;
   let cert = cert_builder.build();
-
-  install_to_trust_store().ok();
 
   Ok((cert, privkey))
 }
@@ -191,27 +182,28 @@ pub fn install_to_trust_store() -> Result<(), ()> {
   let tmp_filename = String::from("tmp");
   File::create(&tmp_filename).expect("Failed to create a temp file");
   Command::new("sudo").arg("security").arg("trust-settings-export").arg("-d").arg(&tmp_filename).output().expect("failed to execute process");
-  let plist_file = File::open(&tmp_filename).expect("Failed to open the plist file");
-  let plist = Plist::read(plist_file).expect("Failed to parse plist");
+  Ok(())
+}
 
-  match plist {
-    Plist::Dictionary(_dic) => {
-      if let Some(v) = _dic.get("trustVersion").expect("Trust version not found").as_integer() {
-        if v != 1 {
-          panic!("ERROR: unsupported trust settings version {}", &v);
-        }
-        let trustlist = _dic.get("trustList").expect("Trust list not found").as_dictionary().unwrap();
+pub fn uninstall_from_trust_store() -> Result<(), ()> {
+  let ca_root = get_ca_root();
+  let output = Command::new("sudo")
+    .arg("security")
+    .arg("remove-trusted-cert")
+    .arg("-d")
+    .arg(ca_root.join(ROOT_NAME))
+    .output()
+    .expect("failed to execute process");
 
-        for (k, v) in trustlist {
-          let _v = v.as_dictionary().expect("Failed to return in dictionary");
-          println!("{:?}", _v.get("issuerName"));
-        }
-      }
-    },
-    _ => {
-      println!("cccc");
-    }
+  if !output.status.success() {
+    let s = match str::from_utf8(&output.stderr) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+    panic!("{}", s);
   };
+
+  fs::remove_dir_all(&ca_root).expect("Failed delete the CA root directory");
 
   Ok(())
 }
