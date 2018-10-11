@@ -83,8 +83,6 @@ pub fn generate_ca() -> Result<(X509, PKey<Private>), ErrorStack> {
 }
 
 pub fn cr8cert(hosts: Vec<&str>, mut ca: File, mut ca_key: File) -> Result<(X509, PKey<Private>), ErrorStack> {
-  println!("Hosts detected: {:?}", hosts);
-
   let mut buffer = String::new();
   ca.read_to_string(&mut buffer).unwrap();
   let ca = X509::from_pem(&buffer.into_bytes()).unwrap();
@@ -127,7 +125,7 @@ pub fn cr8cert(hosts: Vec<&str>, mut ca: File, mut ca_key: File) -> Result<(X509
     .build()?)?;
 
   let mut san_builder = SubjectAlternativeName::new();
-  for san in hosts {
+  for san in &hosts {
     let is_ip = san.parse::<IpAddr>().is_ok();
     if is_ip {
         san_builder.ip(san);
@@ -156,6 +154,12 @@ pub fn cr8cert(hosts: Vec<&str>, mut ca: File, mut ca_key: File) -> Result<(X509
   fs::write(env::current_dir().unwrap().join("cert.pem"), ca_pem).expect("Failed to write a certificate file");
   fs::write(env::current_dir().unwrap().join("key.pem"), priv_pem).expect("Failed to write a key file");
 
+  println!("✨ Certificate successfully created: \"cert.pem\", \"key.pem\".");
+  println!("📗 Folloinwg hosts are included in the certificate:");
+  for host in &hosts {
+    println!("  - {}", host);
+  }
+
   return Ok((cert, pkey));
 }
 
@@ -179,14 +183,14 @@ pub fn install_to_trust_store() -> Result<(), ()> {
     panic!("{}", s);
   };
 
-  let tmp_filename = String::from("tmp");
-  File::create(&tmp_filename).expect("Failed to create a temp file");
-  Command::new("sudo").arg("security").arg("trust-settings-export").arg("-d").arg(&tmp_filename).output().expect("failed to execute process");
   Ok(())
 }
 
 pub fn uninstall_from_trust_store() -> Result<(), ()> {
   let ca_root = get_ca_root();
+  if !ca_root.exists() {
+    return Ok(());
+  }
   let output = Command::new("sudo")
     .arg("security")
     .arg("remove-trusted-cert")
@@ -202,7 +206,6 @@ pub fn uninstall_from_trust_store() -> Result<(), ()> {
     };
     panic!("{}", s);
   };
-
   fs::remove_dir_all(&ca_root).expect("Failed delete the CA root directory");
 
   Ok(())

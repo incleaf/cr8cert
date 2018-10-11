@@ -16,7 +16,7 @@ fn main() {
             .help("Install the local CA in the system trust store.")
             .short("i")
             .long("install"))
-        .arg(Arg::with_name("install")
+        .arg(Arg::with_name("uninstall")
             .help("Uninstall the local CA in the system trust store.")
             .short("u")
             .long("uninstall"))
@@ -57,6 +57,7 @@ fn main() {
 
     if matches.is_present("uninstall") {
         cert::uninstall_from_trust_store().expect("Failed to uninstall the local CA from trust store");
+        println!("✨ Local CA successfully uninstalled");
     }
 
     if let Some(_) = matches.values_of("create") {
