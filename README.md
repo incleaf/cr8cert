@@ -28,7 +28,7 @@ Uninstall the local CA in the system trust store.
 
 ## Demo
 
-![demo](https://user-images.githubusercontent.com/7221609/46851338-25a42080-ce32-11e8-8784-a12420aa968c.gif)
+![demo](https://user-images.githubusercontent.com/7221609/46851911-1cb44e80-ce34-11e8-85c8-7b4ce4bde1df.gif)
 
 ## Credit
 
