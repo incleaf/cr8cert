@@ -25,3 +25,7 @@ $ mkcert --create 127.0.0.1 hyeonsulee.com
 ### `cr8cert --uninstall`
 
 Uninstall the local CA in the system trust store.
+
+## Demo
+
+![demo](https://user-images.githubusercontent.com/7221609/46851338-25a42080-ce32-11e8-8784-a12420aa968c.gif)
