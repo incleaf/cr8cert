@@ -1,6 +1,10 @@
 # cr8cert
 Create an SSL certificate for local development with zero configuration ✨
 
+## Demo
+
+<img src="https://user-images.githubusercontent.com/7221609/46851911-1cb44e80-ce34-11e8-85c8-7b4ce4bde1df.gif" width="600">
+
 ## Installation
 
 ```sh
@@ -25,10 +29,6 @@ $ mkcert --create 127.0.0.1 hyeonsulee.com
 ### `cr8cert --uninstall`
 
 Uninstall the local CA in the system trust store.
-
-## Demo
-
-![demo](https://user-images.githubusercontent.com/7221609/46851911-1cb44e80-ce34-11e8-85c8-7b4ce4bde1df.gif)
 
 ## Credit
 
